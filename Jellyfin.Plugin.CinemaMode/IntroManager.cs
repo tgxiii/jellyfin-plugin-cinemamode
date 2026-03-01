@@ -1,10 +1,12 @@
 using System;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Linq;
 using Jellyfin.Database.Implementations.Entities;
 using MediaBrowser.Model.Entities;
 using MediaBrowser.Controller.Entities;
 using MediaBrowser.Controller.Entities.Movies;
+using MediaBrowser.Controller.Entities.TV;
 using MediaBrowser.Controller.Library;
 using Jellyfin.Data.Enums;
 using Microsoft.Extensions.Logging;
@@ -426,6 +428,7 @@ namespace Jellyfin.Plugin.CinemaMode
     public class IntroManager
     {
         private readonly Random _random = new Random();
+        private static readonly ConcurrentDictionary<string, DateTime> EpisodeSeriesPreRollLastShown = new ConcurrentDictionary<string, DateTime>();
 
         private readonly ILogger Logger;
 
@@ -434,10 +437,78 @@ namespace Jellyfin.Plugin.CinemaMode
             this.Logger = logger;
         }
 
+        private bool IsEpisodeSeriesCooldownEnabled()
+        {
+            return Plugin.Instance.Configuration.EpisodeSeriesPreRollCooldownEnabled
+                && Plugin.Instance.Configuration.EpisodeSeriesPreRollCooldownHours > 0;
+        }
+
+        private string? GetEpisodeSeriesKey(BaseItem item, User user)
+        {
+            if (item is not Episode episode)
+            {
+                return null;
+            }
+
+            if (episode.SeriesId == Guid.Empty)
+            {
+                return null;
+            }
+
+            return $"{user.Id:N}:{episode.SeriesId:N}";
+        }
+
+        private bool ShouldSuppressEpisodePreRolls(BaseItem item, User user)
+        {
+            if (!IsEpisodeSeriesCooldownEnabled())
+            {
+                return false;
+            }
+
+            string? key = GetEpisodeSeriesKey(item, user);
+            if (key == null)
+            {
+                return false;
+            }
+
+            if (!EpisodeSeriesPreRollLastShown.TryGetValue(key, out DateTime lastShown))
+            {
+                return false;
+            }
+
+            TimeSpan cooldown = TimeSpan.FromHours(Plugin.Instance.Configuration.EpisodeSeriesPreRollCooldownHours);
+            TimeSpan elapsed = DateTime.UtcNow - lastShown;
+            if (elapsed < cooldown)
+            {
+                this.Logger.LogInformation("|jellyfin-cinema-mode| Episode pre-roll cooldown active. user={UserId}", user.Id);
+                return true;
+            }
+
+            return false;
+        }
+
+        private void MarkEpisodePreRollShown(BaseItem item, User user)
+        {
+            if (!IsEpisodeSeriesCooldownEnabled())
+            {
+                return;
+            }
+
+            string? key = GetEpisodeSeriesKey(item, user);
+            if (key == null)
+            {
+                return;
+            }
+
+            EpisodeSeriesPreRollLastShown[key] = DateTime.UtcNow;
+        }
+
         public IEnumerable<IntroInfo> Get(BaseItem item, User user)
         {
+            bool suppressEpisodePreRolls = ShouldSuppressEpisodePreRolls(item, user);
+            bool emittedEpisodePreRoll = false;
 
-            if (Plugin.Instance.Configuration.TrailerPreRollsLibrary != "-")
+            if (!suppressEpisodePreRolls && Plugin.Instance.Configuration.TrailerPreRollsLibrary != "-")
             {
                 IntroInfo? trailerPreRoll = null;
                 try
@@ -453,6 +524,10 @@ namespace Jellyfin.Plugin.CinemaMode
 
                 if (trailerPreRoll != null)
                 {
+                    if (item is Episode)
+                    {
+                        emittedEpisodePreRoll = true;
+                    }
                     yield return trailerPreRoll;
                 }
             }
@@ -477,7 +552,7 @@ namespace Jellyfin.Plugin.CinemaMode
                 }
             }
 
-            if (Plugin.Instance.Configuration.FeaturePreRollsLibrary != "-")
+            if (!suppressEpisodePreRolls && Plugin.Instance.Configuration.FeaturePreRollsLibrary != "-")
             {
                 IntroInfo? featurePreRoll = null;
                 try
@@ -493,8 +568,17 @@ namespace Jellyfin.Plugin.CinemaMode
 
                 if (featurePreRoll != null)
                 {
+                    if (item is Episode)
+                    {
+                        emittedEpisodePreRoll = true;
+                    }
                     yield return featurePreRoll;
                 }
+            }
+
+            if (emittedEpisodePreRoll)
+            {
+                MarkEpisodePreRollShown(item, user);
             }
         }
     }
