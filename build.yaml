@@ -1,6 +1,6 @@
 name: 'Cinema Mode'
 guid: '5fcefe1b-df1f-4596-ac57-f2f939c294c5'
-version: '0.6.0.1'
+version: '0.6.1.0'
 targetAbi: '10.11.0.0'
 framework: 'net9.0'
 owner: 'tgxiii'
@@ -11,5 +11,6 @@ category: 'General'
 artifacts:
 - 'Jellyfin.Plugin.CinemaMode.dll'
 changelog:
-  - Add TV episode support for intro playback.
-  - Keep Jellyfin 10.11 ABI compatibility.
+  - Add per-user, per-series episode pre-roll cooldown with 12h default.
+  - Add plugin settings for cooldown enable toggle and cooldown hours.
+  - Keep Jellyfin 10.11 ABI compatibility and TV episode intro support.
