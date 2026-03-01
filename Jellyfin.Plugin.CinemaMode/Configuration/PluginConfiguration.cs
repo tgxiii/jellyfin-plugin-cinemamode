@@ -74,6 +74,8 @@ namespace Jellyfin.Plugin.CinemaMode.Configuration
         public bool EnforceRatingLimitTrailers { get; set; }
         public int NumberOfTrailers { get; set; }
         public bool TrailerConsumeMode { get; set; }
+        public bool EpisodeSeriesPreRollCooldownEnabled { get; set; }
+        public int EpisodeSeriesPreRollCooldownHours { get; set; }
 
         public PluginConfiguration()
         {
@@ -90,6 +92,8 @@ namespace Jellyfin.Plugin.CinemaMode.Configuration
             NumberOfTrailers = 2;
             EnforceRatingLimitTrailers = true;
             TrailerConsumeMode = false;
+            EpisodeSeriesPreRollCooldownEnabled = true;
+            EpisodeSeriesPreRollCooldownHours = 12;
         }
     }
 }
