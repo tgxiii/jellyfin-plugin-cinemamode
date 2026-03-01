@@ -177,6 +177,29 @@
                         </div>
                     </fieldset>
 
+                    <!-- Episode Series Cooldown -->
+                    <fieldset class="verticalSection verticalSection-extrabottompadding">
+                        <legend>
+                            <h3 class="sectionTitle">Episode Series Cooldown</h3>
+                        </legend>
+                        <div class="checkboxContainer checkboxContainer-withDescription">
+                            <label>
+                                <input is="emby-checkbox" type="checkbox" id="episode-series-cooldown-enabled" name="episode-series-cooldown-enabled" />
+                                <span>Suppress repeat episode pre-rolls per series</span>
+                            </label>
+                            <div class="fieldDescription checkboxFieldDescription">
+                                For TV episodes, play a pre-roll once per user/series, then suppress repeats until the cooldown expires.
+                            </div>
+                        </div>
+                        <div class="inputContainer">
+                            <label class="inputLabel inputLabelUnfocused" for="episode-series-cooldown-hours">Cooldown Hours</label>
+                            <input type="number" id="episode-series-cooldown-hours" name="episode-series-cooldown-hours" min="1" is="emby-input"/>
+                            <div class="fieldDescription">
+                                Cooldown window in hours. Runtime state is in-memory and resets on Jellyfin restart.
+                            </div>
+                        </div>
+                    </fieldset>
+
                     <!-- Seasonal Tag Definitions -->
                     <fieldset class="verticalSection verticalSection-extrabottompadding">
                         <legend>
@@ -491,6 +514,15 @@
                     document.getElementById('ignore-out-of-season-trailer-pre-rolls').checked = config.TrailerPreRollsIgnoreOutOfSeason;
                     document.getElementById('ignore-out-of-season-feature-pre-rolls').checked = config.FeaturePreRollsIgnoreOutOfSeason;
                     document.getElementById('trailer-rules-consume-mode').checked = config.TrailerConsumeMode;
+                    document.getElementById('episode-series-cooldown-enabled').checked =
+                        (typeof config.EpisodeSeriesPreRollCooldownEnabled === 'boolean')
+                            ? config.EpisodeSeriesPreRollCooldownEnabled
+                            : true;
+                    var cooldownHours = parseInt(config.EpisodeSeriesPreRollCooldownHours);
+                    if (isNaN(cooldownHours) || cooldownHours < 1) {
+                        cooldownHours = 12;
+                    }
+                    $('#episode-series-cooldown-hours', page).val(cooldownHours);
 
                     initSeasonalTagDefs(config.SeasonalTagDefinitions);
                     initTrailerRules(config.TrailerSelectionRules);
@@ -504,6 +536,10 @@
                 var TrailerPreRollsLibrary = $('#trailerPreRollLibrarySelect').val();
                 var FeaturePreRollsLibrary = $('#featurePreRollLibrarySelect').val();
                 var NumberOfTrailers = $('#number-trailers').val();
+                var EpisodeSeriesPreRollCooldownHours = parseInt($('#episode-series-cooldown-hours').val());
+                if (isNaN(EpisodeSeriesPreRollCooldownHours) || EpisodeSeriesPreRollCooldownHours < 1) {
+                    EpisodeSeriesPreRollCooldownHours = 12;
+                }
                 ApiClient.getPluginConfiguration(pluginId).then(function (config) {
 
                     config.TrailerPreRollsLibrary = TrailerPreRollsLibrary;
@@ -519,6 +555,8 @@
                     config.NumberOfTrailers = parseInt(NumberOfTrailers);
                     config.EnforceRatingLimitTrailers = document.getElementById('enforce-rating-limit-trailers').checked;
                     config.TrailerConsumeMode = document.getElementById('trailer-rules-consume-mode').checked;
+                    config.EpisodeSeriesPreRollCooldownEnabled = document.getElementById('episode-series-cooldown-enabled').checked;
+                    config.EpisodeSeriesPreRollCooldownHours = EpisodeSeriesPreRollCooldownHours;
 
                     ApiClient.updatePluginConfiguration(pluginId, config).then(Dashboard.processPluginConfigurationUpdateResult);
                 });
